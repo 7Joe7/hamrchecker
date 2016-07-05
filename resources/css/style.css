@@ -1,0 +1,64 @@
+.label-column {
+    width: 40%;
+    text-align: right;
+}
+
+.time-row {
+    text-align: left;
+    alignment: left;
+    width: 0;
+}
+
+.searches {
+    width: 100%;
+    text-align: center;
+}
+
+.header img {
+    width: 100%;
+}
+
+table {
+    border: none;
+}
+
+td {
+    padding: 15px;
+}
+
+ul {
+    list-style-type: none;
+    margin: 0;
+    padding: 0;
+}
+
+h2 {
+    font: 400 40px/1.5 Helvetica, Verdana, sans-serif;
+    margin-top: 20px;
+}
+
+li {
+    font: 200 20px/1.5 Helvetica, Verdana, sans-serif;
+}
+
+li a {
+    text-decoration: none;
+    color: #000;
+    display: block;
+    width: 200px;
+
+    -webkit-transition: font-size 0.3s ease, background-color 0.3s ease;
+    -moz-transition: font-size 0.3s ease, background-color 0.3s ease;
+    -o-transition: font-size 0.3s ease, background-color 0.3s ease;
+    -ms-transition: font-size 0.3s ease, background-color 0.3s ease;
+    transition: font-size 0.3s ease, background-color 0.3s ease;
+}
+
+li a:hover {
+    font-size: 30px;
+    background: #f6f6f6;
+}
+
+.tabbed {
+    margin-left: 5px;
+}

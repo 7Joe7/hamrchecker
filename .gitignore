@@ -2,3 +2,5 @@
 /.idea
 *.exe
 HamrChecker
+searches.json
+searches.json.old

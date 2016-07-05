@@ -1,30 +1,153 @@
 package main
 
 import (
-	"os/exec"
-	"fmt"
-	"strings"
-	"unicode"
 	"encoding/xml"
-	"strconv"
-	"time"
+	"fmt"
+	"html/template"
+	"log"
+	"net/http"
 	"net/smtp"
-	"flag"
-	"os"
+	"os/exec"
 	"regexp"
+	"strconv"
+	"strings"
+	"sync"
+	"time"
+	"unicode"
+	"encoding/json"
+	"io/ioutil"
+	"os"
+	"net/url"
+	"errors"
+	"encoding/base64"
 )
 
-const(
-//	LOC_BRANIK = 171
-//	SPORT_BADMINTON = 140
-	TIME_FORMAT = "2006-01-02"
+const (
+	//	LOC_BRANIK = 171
+	//	SPORT_BADMINTON = 140
+	TIME_FORMAT    = "2006-01-02"
+	SEARCHES_STORE = "searches.json"
 )
 
-var(
-	requestParams []string
-	beginningTime, date, toAddr string
+var (
+	requestParams                        []string
+	beginningTime, date, toAddr          string
 	reservationLength, halfHoursToSearch int
+	searchesMutex                        sync.Mutex
+	searches                             []*search
 )
+
+type Resp struct {
+	Div Div `xml:"div"`
+}
+
+type Div struct {
+	Table Table `xml:"table"`
+}
+
+type Table struct {
+	Rows []Row `xml:"tr"`
+}
+
+type Row struct {
+	Data  []*Data `xml:"td"`
+	Class string  `xml:"class,attr"`
+}
+
+type Data struct {
+	Class    string    `xml:"class,attr"`
+	Id       string    `xml:"id,attr"`
+	InnerDiv *InnerDiv `xml:"div"`
+}
+
+type InnerDiv struct {
+	Class string `xml:"class,attr"`
+}
+
+type search struct {
+	Email  string     `json:"email,attr"`
+	From   *time.Time `json:"from,attr"`
+	Till   *time.Time `json:"till,attr"`
+	Length int        `json:"length,attr"`
+	Start  *time.Time `json:"start,attr"`
+}
+
+func (s *search) isEmpty() bool {
+	if s.Email == "" && s.From == nil && s.Till == nil && s.Length == 0 {
+		return true
+	}
+	return false
+}
+
+func (s *search) isValid() bool {
+	if s.Email != "" && s.From != nil && s.Till != nil && s.Length > 0 {
+		return true
+	}
+	return false
+}
+
+func (s *search) Description() string {
+	return fmt.Sprintf("%d half hours on %s between %s and %s started at %s.", s.Length, s.From.Format("2.1.2006"), s.From.Format("15:04"), s.Till.Format("15:04"), s.Start.Format("15:04 2.1.2006"))
+}
+
+func (s *search) parse(form url.Values) error {
+	var date *time.Time
+	if len(form["email"]) > 0 {
+		s.Email = form["email"][0]
+	} else {
+		return errors.New("E-mail not provided.")
+	}
+	if len(form["date"]) > 0 {
+		d, err := time.Parse("2006-01-02", form["date"][0])
+		if err != nil {
+			return fmt.Errorf("Unable to parse date. %v", err)
+		} else {
+			date = &d
+		}
+	} else {
+		return errors.New("Date not provided.")
+	}
+	if len(form["from"]) > 0 {
+		if strings.Contains(form["from"][0], ":00") || strings.Contains(form["from"][0], ":30") {
+			from, err := time.Parse("January 2 2006 15:04", fmt.Sprintf("%s %d %d %s", date.Month().String(), date.Day(), date.Year(), form["from"][0]))
+			if err != nil {
+				return fmt.Errorf("Unable to parse from time. %v", err)
+			} else {
+				s.From = &from
+			}
+		} else {
+			return errors.New("From time should be divisible by half hour.")
+		}
+	} else {
+		return errors.New("From time not provided.")
+	}
+	if len(form["till"]) > 0 {
+		if strings.Contains(form["till"][0], ":00") || strings.Contains(form["till"][0], ":30") {
+			till, err := time.Parse("January 2 2006 15:04", fmt.Sprintf("%s %d %d %s", date.Month().String(), date.Day(), date.Year(), form["till"][0]))
+			if err != nil {
+				return fmt.Errorf("Unable to parse till time. %v", err)
+			} else {
+				s.Till = &till
+			}
+		} else {
+			return errors.New("Till time should be divisible by half hour.")
+		}
+	} else {
+		return errors.New("Till time not provided.")
+	}
+	if len(form["length"]) > 0 {
+		if length, err := strconv.Atoi(form["length"][0]); err != nil {
+			log.Printf("Unable to parse length. %v", err)
+		} else {
+			s.Length = length
+		}
+	} else {
+		return errors.New("Number of consecutive half hours not provided.")
+	}
+	log.Printf("Parsed data: %v", s)
+	return nil
+}
+
 
 func init() {
 	requestParams = []string{"http://hodiny.hamrsport.cz/Login.aspx",
@@ -42,56 +165,116 @@ func init() {
 		"-H", "Referer: http://hodiny.hamrsport.cz/Login.aspx",
 		"--data", "ctl00%24ToolkitScriptManager=ctl00%24workspace%24upTools%7Cctl00%24workspace%24ddlSport&ctl00_ToolkitScriptManager_HiddenField=%3B%3BAjaxControlToolkit%2C%20Version%3D3.5.7.123%2C%20Culture%3Dneutral%2C%20PublicKeyToken%3D28f01b0e84b6d53e%3Aen-US%3A5214fb5a-fe22-4e6b-a36b-906c0237d796%3Ade1feab2%3Af9cec9bc%3Aa67c2700%3Af2c8e708%3A720a52bf%3A589eaa30%3A8613aea7%3A3202a5a2%3Aab09e3fe%3A87104b7c%3Abe6fb298&__LASTFOCUS=&__EVENTTARGET=ctl00%24workspace%24ddlSport&__EVENTARGUMENT=&__VIEWSTATE=&__VIEWSTATEENCRYPTED=&ctl00%24toolboxRight%24tbLoginUserName=erneker&ctl00%24toolboxRight%24tbLoginPassword=626549&ctl00%24workspace%24ddlLocality=171&ctl00%24workspace%24ddlSport=140&__ASYNCPOST=true&",
 		"--compressed"}
-	flag.StringVar(&beginningTime, "beginningTime", "", "")
-	flag.StringVar(&date, "date", "", "")
-	flag.StringVar(&toAddr, "to", "", "")
-	flag.IntVar(&reservationLength, "reservationLength", 2, "")
-	flag.IntVar(&halfHoursToSearch, "halfHoursToSearch", 4, "")
 }
 
-type Resp struct {
-	Div Div `xml:"div"`
+func saveSearchesToFile() error {
+	searchesB, err := json.Marshal(&searches)
+	if err != nil {
+		return err
+	}
+	return ioutil.WriteFile(SEARCHES_STORE, searchesB, 777)
 }
 
-type Div struct {
-	Table Table `xml:"table"`
+func loadSearches() {
+	searchesB, err := ioutil.ReadFile(SEARCHES_STORE)
+	if err != nil {
+		// consider searches file non-existing
+		searches = []*search{}
+	}
+	if err := json.Unmarshal(searchesB, &searches); err != nil {
+		// searches file is corrupted
+		log.Printf("Searches store is corrupted. Backing it up to %s.old.\n", SEARCHES_STORE)
+		backupFileName := fmt.Sprintf("%s.old", SEARCHES_STORE)
+		os.Remove(backupFileName)
+		if err := ioutil.WriteFile(backupFileName, searchesB, 777); err != nil {
+			log.Printf("Unable to backup corrupted searches store.\n")
+		}
+		searches = []*search{}
+	}
 }
 
-type Table struct {
-	Rows []Row `xml:"tr"`
+func addSearch(s *search) {
+	searchesMutex.Lock()
+	defer searchesMutex.Unlock()
+	now := time.Now()
+	s.Start = &now
+	searches = append(searches, s)
+	if err := saveSearchesToFile(); err != nil {
+		log.Printf("Unable to save searches to store. %v", err)
+	}
 }
 
-type Row struct {
-	Data []*Data `xml:"td"`
-	Class string `xml:"class,attr"`
+func removeSearch(s *search) {
+	searchesMutex.Lock()
+	defer searchesMutex.Unlock()
+	for i := 0; i < len(searches); i++ {
+		if searches[i] == s {
+			searches = append(searches[:i], searches[i+1:]...)
+			break
+		}
+	}
+	if err := saveSearchesToFile(); err != nil {
+		log.Printf("Unable to save searches to store. %v", err)
+	}
 }
 
-type Data struct {
-	Class string `xml:"class,attr"`
-	Id string    `xml:"id,attr"`
-	InnerDiv *InnerDiv `xml:"div"`
+func removeSearchByIndex(i int) {
+	searchesMutex.Lock()
+	defer searchesMutex.Unlock()
+	searches = append(searches[:i], searches[i+1:]...)
+	if err := saveSearchesToFile(); err != nil {
+		log.Printf("Unable to save searches to store. %v", err)
+	}
 }
 
-type InnerDiv struct {
-	Class string `xml:"class,attr"`
+func runSearch(s *search) {
+
+}
+
+func index(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		log.Fatal(err)
+	}
+	search := &search{}
+	search.parse(r.Form)
+	if !search.isEmpty() {
+		if search.isValid() {
+			addSearch(search)
+			go runSearch(search)
+		} else {
+			// save the state
+			SetFlash(w, "message", []byte("This is a flashed message!"))
+			// TODO inform
+		}
+	}
+	templates := template.Must(template.ParseFiles("resources/html/hamrchecker.html"))
+	templates.ExecuteTemplate(w, "hamrchecker", searches)
 }
 
 func main() {
-	flag.Parse()
-	if len(date) != 10 {
-		fmt.Println("Date formatting is wrong. Input leading zeroes if needed.")
-		os.Exit(1)
+	mux := http.DefaultServeMux
+	mux.HandleFunc("/", index)
+	http.Handle("/resources/", http.StripPrefix("/resources/", http.FileServer(http.Dir("resources"))))
+	server := &http.Server{
+		Addr:    "0.0.0.0:8080",
+		Handler: mux,
 	}
-	toAddresses := strings.Split(toAddr, ",")
-	beginningIndex := convertTimeToindex(beginningTime)
-	checkFreePlace(beginningIndex, toAddresses, getAndProcessResponse())
+	loadSearches()
+	for i := 0; i < len(searches); i++ {
+		if time.Now().Before(*searches[i].Till) {
+			removeSearchByIndex(i)
+		} else {
+			go runSearch(searches[i])
+		}
+	}
+	server.ListenAndServe()
 }
 
 func checkFreePlace(beginningIndex int, toAddresses []string, div Div) {
 	for {
 		dateIndex := calculateDateIndex(date)
 		freeInARow := 0
-		for k := beginningIndex; k < beginningIndex + halfHoursToSearch; k++ {
+		for k := beginningIndex; k < beginningIndex+halfHoursToSearch; k++ {
 			if k > 32 {
 				break
 			}
@@ -138,7 +321,7 @@ func getAndProcessResponse() Div {
 func calculateDateIndex(date string) int {
 	t, _ := time.Parse(TIME_FORMAT, date)
 	duration := t.Sub(time.Now())
-	return int(duration.Hours() / 24) + 1
+	return int(duration.Hours()/24) + 1
 }
 
 func convertTimeToindex(time string) int {
@@ -147,7 +330,7 @@ func convertTimeToindex(time string) int {
 	}
 	i, err := strconv.Atoi(time[0:2])
 	handleError(err)
-	index := 2 * i - 13
+	index := 2*i - 13
 	if strings.HasSuffix(time, ":30") {
 		index += 1
 	}
@@ -162,4 +345,28 @@ func handleError(err error) {
 	if err != nil {
 		panic(err)
 	}
+}
+
+func SetFlash(w http.ResponseWriter, name string, value []byte) {
+	c := &http.Cookie{Name: name, Value: base64.URLEncoding.EncodeToString(value)}
+	http.SetCookie(w, c)
+}
+
+func GetFlash(w http.ResponseWriter, r *http.Request, name string) ([]byte, error) {
+	c, err := r.Cookie(name)
+	if err != nil {
+		switch err {
+		case http.ErrNoCookie:
+			return nil, nil
+		default:
+			return nil, err
+		}
+	}
+	value, err := base64.URLEncoding.DecodeString(c.Value)
+	if err != nil {
+		return nil, err
+	}
+	dc := &http.Cookie{Name: name, MaxAge: -1, Expires: time.Unix(1, 0)}
+	http.SetCookie(w, dc)
+	return value, nil
 }
