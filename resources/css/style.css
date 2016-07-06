@@ -1,5 +1,5 @@
 .label-column {
-    width: 40%;
+    width: 50%;
     text-align: right;
 }
 
@@ -16,6 +16,32 @@
 
 .header img {
     width: 100%;
+}
+
+.form-table {
+    width: 100%;
+}
+
+.flash {
+    text-align: center;
+    width: 100%;
+}
+
+.flash-error {
+    background-color: pink;
+    color: red;
+    padding: 15px;
+}
+
+.flash-success {
+    background-color: lightgreen;
+    color: green;
+    padding: 15px;
+}
+
+.flash-none {
+    background-color: transparent;
+    padding: 0;
 }
 
 table {

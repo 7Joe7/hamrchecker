@@ -10,11 +10,12 @@
     </head>
     <body>
         <div class="header">
-            <img src="/resources/img/imgonline-com-ua-twotone-crPEq01ZxSDq.jpg"/>
+            <img src="/resources/img/welcome.jpg"/>
         </div>
-        <div class="form">
+        <div class="flash flash-{{ .FlashType }}">{{ .Flash }}</div>
+        <div>
             <form action="/" method="post" title="HamrChecker" id="hamrchecker">
-                <table style="width:100%">
+                <table class="form-table">
                     <tr>
                         <td class="label-column"><label for="email">E-mail</label></td>
                         <td><input type="email" name="email" id="email" /></td>
@@ -122,7 +123,7 @@
         <div class="searches">
             <h2>Running:</h2>
             <ul>
-                {{ range . }}
+                {{ range .Searches }}
                     <li>{{ .Description }}</li>
                 {{ else }}
                     <li>No actual searches</li>
