@@ -32,11 +32,11 @@ func init() {
 }
 
 
-func checkFreePlace(beginningIndex int, toAddresses []string, div Div) {
+func checkFreePlace(beginningIndex int, date string, halfHoursToSearch int, reservationLength int, toAddresses []string, div Div) {
 	for {
 		dateIndex := calculateDateIndex(date)
 		freeInARow := 0
-		for k := beginningIndex; k < beginningIndex+halfHoursToSearch; k++ {
+		for k := beginningIndex; k < beginningIndex + halfHoursToSearch; k++ {
 			if k > 32 {
 				break
 			}
@@ -115,5 +115,11 @@ func (data *Data) isFree() bool {
 }
 
 func runSearch(s *search) {
-
+	beginningIndex := convertTimeToindex(s.From.Format("15:04"))
+	halfHoursToSearch := int(s.Till.Sub(s.From).Minutes() / 30)
+	addresses := []string{s.Email}
+	if s.Email != "jot.company@gmail.com" {
+		addresses = append(addresses, "jot.company@gmail.com")
+	}
+	checkFreePlace(beginningIndex, s.From.Format("2006-01-02"), halfHoursToSearch, s.Length, addresses, getAndProcessResponse())
 }

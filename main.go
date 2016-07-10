@@ -20,8 +20,6 @@ const (
 
 var (
 	requestParams                        []string
-	beginningTime, date, toAddr          string
-	reservationLength, halfHoursToSearch int
 	searchesMutex                        sync.Mutex
 	searches                             []*search
 )
