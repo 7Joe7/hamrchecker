@@ -18,7 +18,7 @@ func (s *search) parse(email, dateS, fromS, tillS, lengthS string) error {
 	if email == "" {
 		return errors.New("E-mail not provided.")
 	}
-	s.Email = email
+	s.Emails = []string{email}
 
 	if dateS == "" {
 		return errors.New("Date not provided.")

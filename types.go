@@ -30,7 +30,7 @@ type InnerDiv struct {
 }
 
 type search struct {
-	Email  string     `json:"email,attr"`
+	Emails []string   `json:"emails,attr"`
 	From   *time.Time `json:"from,attr"`
 	Till   *time.Time `json:"till,attr"`
 	Length int        `json:"length,attr"`

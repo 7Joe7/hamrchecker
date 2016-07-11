@@ -32,12 +32,15 @@ func init() {
 }
 
 
-func checkFreePlace(beginningIndex int, date string, halfHoursToSearch int, reservationLength int, toAddresses []string, div Div) {
+func checkFreePlace(s *search, div *Div) {
+	beginningIndex := convertTimeToIndex(s.From.Format("15:04"))
+	date := s.From.Format("2006-01-02")
+	halfHoursToSearch := int(s.Till.Sub(*s.From).Minutes() / 30)
 	for {
 		dateIndex := calculateDateIndex(date)
 		freeInARow := 0
 		for k := beginningIndex; k < beginningIndex + halfHoursToSearch; k++ {
-			if k > 32 {
+			if k > 33 {
 				break
 			}
 			if div.Table.Rows[dateIndex].Data[k].isFree() {
@@ -45,18 +48,18 @@ func checkFreePlace(beginningIndex int, date string, halfHoursToSearch int, rese
 			} else {
 				freeInARow = 0
 			}
-			if freeInARow == reservationLength {
-				message := fmt.Sprintf("To: %s\nSubject: Court is free\nHello,\n\ncourt you have requested at Hamr Sport is avaiable.\n\nSearch:\ndate = %s\nbeginningTime = %s\n\nHave a nice day.\n\nJOT", toAddr, date, beginningTime)
-				if err := smtp.SendMail("smtp.gmail.com:587", smtp.PlainAuth("", "jot.company@gmail.com", "moderator7", "smtp.gmail.com"), "jot.company@gmail.com", toAddresses, []byte(message)); err != nil {
+			if freeInARow == s.Length {
+				message := fmt.Sprintf("To: You\nSubject: Court is free\nHello,\n\ncourt you have requested at Hamr Sport is avaiable.\n\nSearch:\ndate = %s\nbeginningTime = %s\n\nHave a nice day.\n\nJOT", date, convertIndexToTime(k - s.Length + 1))
+				if err := smtp.SendMail("smtp.gmail.com:587", smtp.PlainAuth("", "jot.company@gmail.com", "moderator7", "smtp.gmail.com"), "jot.company@gmail.com", s.Emails, []byte(message)); err != nil {
 					log.Printf("Unable to send e-mail. %v", err)
 				}
 				break
 			}
 		}
-		if freeInARow == reservationLength {
+		if freeInARow == s.Length {
 			break
 		}
-		fmt.Println(fmt.Sprintf("Checking Hamr Sport for court with parameters: beginningTime = %s, date = %s, to = %v, reservationLength = %d, halfHoursToSearch = %d", beginningTime, date, toAddresses, reservationLength, halfHoursToSearch))
+		log.Printf("Checking Hamr Sport for court with parameters: beginningTime = %s, date = %s, to = %v, reservationLength = %d, halfHoursToSearch = %d", s.From, date, s.Emails, s.Length, halfHoursToSearch)
 		time.Sleep(time.Second * 60)
 	}
 }
@@ -94,7 +97,7 @@ func calculateDateIndex(date string) int {
 	return int(duration.Hours()/24) + 1
 }
 
-func convertTimeToindex(time string) int {
+func convertTimeToIndex(time string) int {
 	if len(time) == 4 {
 		time = fmt.Sprintf("0%s", time)
 	}
@@ -103,11 +106,19 @@ func convertTimeToindex(time string) int {
 		log.Printf("Unable to convert time to index. %v", err)
 		return -1
 	}
-	index := 2*i - 13
+	index := 2*i - 12
 	if strings.HasSuffix(time, ":30") {
 		index += 1
 	}
 	return index
+}
+
+func convertIndexToTime(index int) string {
+	hour := index + 12
+	if hour % 2 == 1 {
+		return fmt.Sprintf("%d:30", hour / 2)
+	}
+	return fmt.Sprintf("%d:00", hour / 2)
 }
 
 func (data *Data) isFree() bool {
@@ -115,11 +126,16 @@ func (data *Data) isFree() bool {
 }
 
 func runSearch(s *search) {
-	beginningIndex := convertTimeToindex(s.From.Format("15:04"))
-	halfHoursToSearch := int(s.Till.Sub(s.From).Minutes() / 30)
-	addresses := []string{s.Email}
-	if s.Email != "jot.company@gmail.com" {
-		addresses = append(addresses, "jot.company@gmail.com")
+	log.Printf("Starting search %v", s)
+	found := false
+	for i := 0; i < len(s.Emails); i++ {
+		if s.Emails[i] == "jot.company@gmail.com" {
+			found = true
+			break
+		}
 	}
-	checkFreePlace(beginningIndex, s.From.Format("2006-01-02"), halfHoursToSearch, s.Length, addresses, getAndProcessResponse())
+	if !found {
+		s.Emails = append(s.Emails, "jot.company@gmail.com")
+	}
+	checkFreePlace(s, getAndProcessResponse())
 }
