@@ -15,7 +15,7 @@ import (
 
 func init() {
 	requestParams = []string{"http://hodiny.hamrsport.cz/Login.aspx",
-		"-H", "Cookie: _ga=GA1.2.1761385536.1450711716; HamrOnline$SessionId=5zw1pv45b0mocffcv5e3lvq5; __utmt=1; __utma=74282507.1761385536.1450711716.1460970159.1461009504.4; __utmb=74282507.8.10.1461009504; __utmc=74282507; __utmz=74282507.1461009504.4.4.utmcsr=google|utmccn=(organic)|utmcmd=organic|utmctr=(not%20provided)",
+		"-H", "Cookie: _ga=GA1.2.1761385536.1450711716; HamrOnline$SessionId=snt0dk45m2pr0obidq13hpe2; __utmt=1; __utma=74282507.1761385536.1450711716.1460970159.1461009504.4; __utmb=74282507.8.10.1461009504; __utmc=74282507; __utmz=74282507.1461009504.4.4.utmcsr=google|utmccn=(organic)|utmcmd=organic|utmctr=(not%20provided)",
 		"-H", "Origin: http://hodiny.hamrsport.cz",
 		"-H", "Accept-Encoding: gzip, deflate",
 		"-H", "Accept-Language: en-US,en;q=0.8,cs;q=0.6",
@@ -34,10 +34,12 @@ func init() {
 
 func checkFreePlace(s *search, div *Div) {
 	beginningIndex := convertTimeToIndex(s.From.Format("15:04"))
+	log.Printf("Beginning index %d", beginningIndex)
 	date := s.From.Format("2006-01-02")
 	halfHoursToSearch := int(s.Till.Sub(*s.From).Minutes() / 30)
 	for {
 		dateIndex := calculateDateIndex(date)
+		log.Printf("Date index %d", dateIndex)
 		freeInARow := 0
 		for k := beginningIndex; k < beginningIndex + halfHoursToSearch; k++ {
 			if k > 33 {
@@ -50,9 +52,10 @@ func checkFreePlace(s *search, div *Div) {
 			}
 			if freeInARow == s.Length {
 				message := fmt.Sprintf("To: You\nSubject: Court is free\nHello,\n\ncourt you have requested at Hamr Sport is avaiable.\n\nSearch:\ndate = %s\nbeginningTime = %s\n\nHave a nice day.\n\nJOT", date, convertIndexToTime(k - s.Length + 1))
-				if err := smtp.SendMail("smtp.gmail.com:587", smtp.PlainAuth("", "jot.company@gmail.com", "moderator7", "smtp.gmail.com"), "jot.company@gmail.com", s.Emails, []byte(message)); err != nil {
+				if err := smtp.SendMail("smtp.gmail.com:587", smtp.PlainAuth("", "jot.company@gmail.com", "harrison7", "smtp.gmail.com"), "jot.company@gmail.com", s.Emails, []byte(message)); err != nil {
 					log.Printf("Unable to send e-mail. %v", err)
 				}
+				removeSearch(s)
 				break
 			}
 		}
@@ -71,6 +74,7 @@ func getAndProcessResponse() *Div {
 		return nil
 	}
 	resp := string(out)
+	log.Printf(resp)
 	resp = resp[strings.Index(resp, "<div id=\"ctl00_workspace_ReservationGrid_divResGrid\" class=\"resgrid\">"):]
 	reg := regexp.MustCompile(`\|\d+\|updatePanel\|ctl00_workspace_upLegend\|`)
 	resp = resp[:strings.Index(resp, reg.FindString(resp))]
@@ -94,7 +98,7 @@ func getAndProcessResponse() *Div {
 func calculateDateIndex(date string) int {
 	t, _ := time.Parse(TIME_FORMAT, date)
 	duration := t.Sub(time.Now())
-	return int(duration.Hours()/24) + 1
+	return int(duration.Hours()/24) + 2
 }
 
 func convertTimeToIndex(time string) int {
@@ -106,7 +110,7 @@ func convertTimeToIndex(time string) int {
 		log.Printf("Unable to convert time to index. %v", err)
 		return -1
 	}
-	index := 2*i - 12
+	index := 2*i - 14
 	if strings.HasSuffix(time, ":30") {
 		index += 1
 	}
@@ -114,7 +118,7 @@ func convertTimeToIndex(time string) int {
 }
 
 func convertIndexToTime(index int) string {
-	hour := index + 12
+	hour := index + 14
 	if hour % 2 == 1 {
 		return fmt.Sprintf("%d:30", hour / 2)
 	}

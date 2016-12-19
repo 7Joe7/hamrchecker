@@ -1,0 +1,14 @@
+[Unit]
+Description=Hamr sport centre reservation helper with web UI running on port 8080
+After=network.target
+
+[Service]
+ExecStart=/usr/bin/hamrchecker
+ExecReload=/bin/kill -HUP $MAINPID
+KillMode=process
+Restart=on-failure
+WorkingDirectory=/usr/local/src
+
+[Install]
+WantedBy=multi-user.target
+Alias=hamrchecker.service

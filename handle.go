@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"net/http"
-	"html/template"
 )
 
 func indexPost(w http.ResponseWriter, r *http.Request, ti *templateInfo) {
@@ -35,6 +34,5 @@ func index(w http.ResponseWriter, r *http.Request) {
 	case "POST":
 		indexPost(w, r, &ti)
 	}
-	template := template.Must(template.ParseFiles("resources/html/hamrchecker.html"))
-	template.ExecuteTemplate(w, "hamrchecker", ti)
+	templates.ExecuteTemplate(w, "hamrchecker", ti)
 }

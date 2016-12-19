@@ -27,9 +27,6 @@ func (s *search) parse(email, dateS, fromS, tillS, lengthS string) error {
 	if err != nil {
 		return fmt.Errorf("Unable to parse date. %v", err)
 	}
-	if d.Before(time.Now()) {
-		return fmt.Errorf("Date is in the past.")
-	}
 	date = &d
 
 	if fromS == "" {

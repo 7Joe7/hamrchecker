@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"html/template"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -19,9 +20,10 @@ const (
 )
 
 var (
-	requestParams                        []string
-	searchesMutex                        sync.Mutex
-	searches                             []*search
+	requestParams []string
+	searchesMutex sync.Mutex
+	searches      []*search
+	templates     *template.Template
 )
 
 func saveSearchesToFile() error {
@@ -85,16 +87,23 @@ func removeSearchByIndex(i int) {
 }
 
 func main() {
+	var err error
+	templates, err = template.ParseFiles("resources/html/hamrchecker.html")
+	if err != nil {
+		panic(err)
+	}
 	http.HandleFunc("/", index)
-	http.Handle("/resources/", http.StripPrefix("/resources/", http.FileServer(http.Dir("resources"))))
-	server := &http.Server{Addr: "0.0.0.0:8080"}
+	http.Handle("/resources/", http.StripPrefix("/resources/", http.FileServer(http.Dir("/usr/local/src/resources"))))
 	loadSearches()
 	for i := 0; i < len(searches); i++ {
-		if time.Now().Before(*searches[i].Till) {
+		if time.Now().After(*searches[i].Till) {
 			removeSearchByIndex(i)
 		} else {
 			go runSearch(searches[i])
 		}
 	}
-	server.ListenAndServe()
+	err = http.ListenAndServe("", nil)
+	if err != nil {
+		panic(err)
+	}
 }
