@@ -16,6 +16,10 @@ func Load() []*resources.Search {
 	return load()
 }
 
+func LoadEmailConf() (*resources.EmailConf, error) {
+	return loadEmailConf()
+}
+
 func AddSearch(search *resources.Search) (int, error) {
 	return addSearch(search)
 }

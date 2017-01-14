@@ -8,6 +8,7 @@ import (
 	"github.com/7joe7/hamrchecker/web"
 	"github.com/7joe7/hamrchecker/db"
 	"github.com/7joe7/hamrchecker/checker"
+	"log"
 )
 
 func main() {
@@ -19,6 +20,12 @@ func main() {
 	http.HandleFunc("/", web.Index)
 	http.Handle("/web/resources/", http.StripPrefix("/web/resources/", http.FileServer(http.Dir("/usr/local/src/web/resources"))))
 
+	emailConf, err := db.LoadEmailConf()
+	if err != nil {
+		log.Printf("Email configuration was not read. It is invalid or nonexistent. %v", err)
+		panic(err)
+	}
+	checker.SetEmailConfiguration(emailConf)
 	searches := db.GetSearches()
 	for i := 0; i < len(searches); i++ {
 		if time.Now().After(*searches[i].Till) {

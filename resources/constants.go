@@ -13,10 +13,9 @@ const (
 	HAMR_SPORT_CODE_FLORBAL = "144"
 	HAMR_SPORT_CODE_FOOTBALL = "142"
 
-	ADMIN_EMAIL = "jot.company@gmail.com"
-
 	TIME_FORMAT    = "2006-01-02"
 	SEARCHES_STORE = "searches.json"
+	EMAIL_CONF_STORE = "email.json"
 
 
 )

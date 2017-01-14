@@ -152,3 +152,10 @@ type TemplateInfo struct {
 	Flash     string
 	FlashType string
 }
+
+type EmailConf struct {
+	Address string
+	Password string
+	SmtpServer string
+	SmtpServerWithPort string
+}

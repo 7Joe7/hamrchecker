@@ -15,6 +15,14 @@ import (
 	"github.com/7joe7/hamrchecker/hamrui"
 )
 
+var (
+	emailConf *resources.EmailConf
+)
+
+func setEmailConfiguration(ec *resources.EmailConf) {
+	emailConf = ec
+}
+
 func checkFreePlace(s *resources.Search, table *resources.Table) bool {
 	beginningIndex := convertTimeToIndex(s.From.Format("15:04"))
 	log.Printf("Beginning index %d", beginningIndex)
@@ -35,7 +43,7 @@ func checkFreePlace(s *resources.Search, table *resources.Table) bool {
 		if freeInARow == s.Length {
 			message := fmt.Sprintf(
 				"To: You\nSubject: Court is free\nHello,\n\ncourt you have requested at Hamr Sport %s is avaiable.\n\nSearch:\nPlace %s\nSport %s\nDate %s\nFrom %s\n\nHave a nice day.\n\nJOT", resources.PlaceIdToName(s.Place), resources.PlaceIdToName(s.Place), resources.SportIdToName(s.Sport), date, convertIndexToTime(k - s.Length + 1))
-			if err := smtp.SendMail("smtp.gmail.com:587", smtp.PlainAuth("", "jot.company@gmail.com", "harrison7", "smtp.gmail.com"), "jot.company@gmail.com", s.Emails, []byte(message)); err != nil {
+			if err := smtp.SendMail(emailConf.SmtpServerWithPort, smtp.PlainAuth("", emailConf.Address, emailConf.Password, emailConf.SmtpServer), emailConf.Address, s.Emails, []byte(message)); err != nil {
 				log.Printf("Unable to send e-mail. %v", err)
 			}
 			err := db.RemoveSearch(s.Id)
@@ -157,12 +165,12 @@ func prepareSession(s *resources.Search) error {
 func ensureAdminEmail(s *resources.Search) {
 	found := false
 	for i := 0; i < len(s.Emails); i++ {
-		if s.Emails[i] == "jot.company@gmail.com" {
+		if s.Emails[i] == emailConf.Address {
 			found = true
 			break
 		}
 	}
 	if !found {
-		s.Emails = append(s.Emails, "jot.company@gmail.com")
+		s.Emails = append(s.Emails, emailConf.Address)
 	}
 }

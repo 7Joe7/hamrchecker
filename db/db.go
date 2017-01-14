@@ -48,6 +48,19 @@ func load() []*resources.Search {
 	return searches
 }
 
+func loadEmailConf() (*resources.EmailConf, error) {
+	emailConf := &resources.EmailConf{}
+	emailConfContent, err := ioutil.ReadFile(resources.EMAIL_CONF_STORE)
+	if err != nil {
+		return nil, err
+	}
+	err = json.Unmarshal(emailConfContent, emailConf)
+	if err != nil {
+		return nil, err
+	}
+	return emailConf, nil
+}
+
 func addSearch(search *resources.Search) (int, error) {
 	db.Lock()
 	defer db.Unlock()

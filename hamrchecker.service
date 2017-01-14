@@ -1,5 +1,5 @@
 [Unit]
-Description=Hamr sport centre reservation helper with web UI running on port 8080
+Description=Hamr sport centre reservation helper with web UI running on port 80
 After=network.target
 
 [Service]
