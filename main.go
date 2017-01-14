@@ -1,108 +1,33 @@
 package main
 
 import (
-	"encoding/json"
-	"fmt"
 	"html/template"
-	"io/ioutil"
-	"log"
-	"net/http"
-	"os"
-	"sync"
 	"time"
+	"net/http"
+
+	"github.com/7joe7/hamrchecker/web"
+	"github.com/7joe7/hamrchecker/db"
+	"github.com/7joe7/hamrchecker/checker"
 )
-
-const (
-	//	LOC_BRANIK = 171
-	//	SPORT_BADMINTON = 140
-	TIME_FORMAT    = "2006-01-02"
-	SEARCHES_STORE = "searches.json"
-)
-
-var (
-	requestParams []string
-	searchesMutex sync.Mutex
-	searches      []*search
-	templates     *template.Template
-)
-
-func saveSearchesToFile() error {
-	searchesB, err := json.Marshal(&searches)
-	if err != nil {
-		return err
-	}
-	return ioutil.WriteFile(SEARCHES_STORE, searchesB, 777)
-}
-
-func loadSearches() {
-	searchesB, err := ioutil.ReadFile(SEARCHES_STORE)
-	if err != nil {
-		// consider searches file non-existing
-		searches = []*search{}
-	}
-	if err := json.Unmarshal(searchesB, &searches); err != nil {
-		// searches file is corrupted
-		log.Printf("Searches store is corrupted. Backing it up to %s.old.\n", SEARCHES_STORE)
-		backupFileName := fmt.Sprintf("%s.old", SEARCHES_STORE)
-		os.Remove(backupFileName)
-		if err := ioutil.WriteFile(backupFileName, searchesB, 777); err != nil {
-			log.Printf("Unable to backup corrupted searches store.\n")
-		}
-		searches = []*search{}
-	}
-}
-
-func addSearch(s *search) {
-	searchesMutex.Lock()
-	defer searchesMutex.Unlock()
-	now := time.Now()
-	s.Start = &now
-	searches = append(searches, s)
-	if err := saveSearchesToFile(); err != nil {
-		log.Printf("Unable to save searches to store. %v", err)
-	}
-}
-
-func removeSearch(s *search) {
-	searchesMutex.Lock()
-	defer searchesMutex.Unlock()
-	for i := 0; i < len(searches); i++ {
-		if searches[i] == s {
-			searches = append(searches[:i], searches[i+1:]...)
-			break
-		}
-	}
-	if err := saveSearchesToFile(); err != nil {
-		log.Printf("Unable to save searches to store. %v", err)
-	}
-}
-
-func removeSearchByIndex(i int) {
-	searchesMutex.Lock()
-	defer searchesMutex.Unlock()
-	searches = append(searches[:i], searches[i+1:]...)
-	if err := saveSearchesToFile(); err != nil {
-		log.Printf("Unable to save searches to store. %v", err)
-	}
-}
 
 func main() {
-	var err error
-	templates, err = template.ParseFiles("resources/html/hamrchecker.html")
+	templates, err := template.ParseFiles("web/resources/html/hamrchecker.html")
 	if err != nil {
 		panic(err)
 	}
-	http.HandleFunc("/", index)
-	http.Handle("/resources/", http.StripPrefix("/resources/", http.FileServer(http.Dir("/usr/local/src/resources"))))
-	loadSearches()
+	web.SetTemplates(templates)
+	http.HandleFunc("/", web.Index)
+	http.Handle("/web/resources/", http.StripPrefix("/web/resources/", http.FileServer(http.Dir("/usr/local/src/web/resources"))))
+
+	searches := db.GetSearches()
 	for i := 0; i < len(searches); i++ {
 		if time.Now().After(*searches[i].Till) {
-			removeSearchByIndex(i)
+			db.RemoveSearch(searches[i].Id)
 		} else {
-			go runSearch(searches[i])
+			go checker.RunSearch(searches[i])
 		}
 	}
-	err = http.ListenAndServe("", nil)
+	err = http.ListenAndServe(":8080", nil)
 	if err != nil {
 		panic(err)
 	}
