@@ -140,11 +140,23 @@
                     }
                 }
                 var numberOfHoursSelect = document.getElementById("length");
-                if (fromIndex + Number(numberOfHoursSelect.value) >= options.length) {
+                var hoursValue = Number(numberOfHoursSelect.value);
+                numberOfHoursSelect.options.length = 0;
+                for (var k = 1; k < 9; k++) {
+                    if (k <= options.length - 1 - fromIndex) {
+                        option = document.createElement("option");
+                        option.text = k;
+                        if (k == hoursValue) {
+                            numberOfHoursSelect.value = k;
+                        }
+                        numberOfHoursSelect.add(option);
+                    }
+                }
+                if (fromIndex + Number(hoursValue) >= options.length) {
                     tillSelect.value = options[options.length - 1];
                     numberOfHoursSelect.value = options.length - 1 - fromIndex;
                 } else {
-                    tillSelect.value = options[fromIndex + Number(numberOfHoursSelect.value)];
+                    tillSelect.value = options[fromIndex + hoursValue];
                 }
             }
             function ensureTillHighEnough() {
@@ -237,6 +249,7 @@
                         break
                 }
             }
+            var numberOfHoursSelect = document.getElementById("length");
             updateSports();
             updateTill();
         </script>
