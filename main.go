@@ -27,7 +27,7 @@ func main() {
 			go checker.RunSearch(searches[i])
 		}
 	}
-	err = http.ListenAndServe(":8080", nil)
+	err = http.ListenAndServe("", nil)
 	if err != nil {
 		panic(err)
 	}
